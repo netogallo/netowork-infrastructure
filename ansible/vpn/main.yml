@@ -1,0 +1,6 @@
+- name: Configure certificate authority
+  hosts: ca
+  remote_user: root
+
+  roles:
+    - ca

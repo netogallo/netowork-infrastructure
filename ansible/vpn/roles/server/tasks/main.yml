@@ -1,0 +1,68 @@
+- name: Install OpenVPN
+  apt:
+    name: openvpn
+    state: present
+
+- name: Install EasyRSA
+  apt:
+    name: easy-rsa
+    state: present
+
+- name: Install UFW
+  apt:
+    name: ufw
+    state: present
+
+- name: Copy openvpn server config
+  template: "src=server.conf.j2 dest={{ openvpn_dir }}/../server.conf"
+
+- name: Create CA directory
+  shell:
+    cmd: make-cadir "{{ openvpn_dir }}/ca"
+    creates: "{{ openvpn_dir }}/ca"
+
+- name: Define RSA variables
+  template: src=vars.j2 dest={{ openvpn_dir }}/ca/vars
+
+- name: Init openssl pki
+  shell:
+    chdir: "{{ openvpn_dir }}/ca"
+    cmd: ./easyrsa init-pki
+    creates: "{{ openvpn_dir }}/ca/pki"
+
+- name: Generate server certificate request
+  shell:
+    chdir: "{{ openvpn_dir }}/ca"
+    cmd: "./easyrsa gen-req {{ inventory_hostname }} nopass"
+    creates: "{{ openvpn_dir }}/ca/pki/private/{{ inventory_hostname }}.key"
+
+- name: Generate a Diffie-Hellman key
+  shell:
+    chdir: "{{ openvpn_dir }}/ca"
+    cmd: ./easyrsa gen-dh
+    creates: "{{ openvpn_dir }}/ca/pki/dh.pem"
+
+- name: Generate HMAC signature for server
+  shell:
+    chdir: "{{ openvpn_dir }}/ca"
+    cmd: openvpn --genkey --secret ta.key
+    creates: "{{ openvpn_dir }}/ca/ta.key"
+
+- name: Copy sysctl file with ip forwarding enabled
+  copy: src=sysctl.conf dest=/etc/sysctl.conf
+
+- name: Load updated sysctl configuration
+  shell:
+    cmd: sysctl -p
+
+- name: Copy firewall rules with postrouting support
+  template: src=before.rules.j2 dest=/etc/ufw/before.rules
+
+- name: Copy firewall rules with forwarding enabled
+  copy: src=ufw dest=/etc/default/ufw
+
+- name: Copy siging requests to master
+  fetch: "src={{ openvpn_dir }}/ca/pki/reqs/{{ inventory_hostname }}.req dest=tmp/server/reqs/ flat=yes"
+
+- name: Copy ta key to master
+  fetch: "src={{ openvpn_dir }}/ca/ta.key dest=tmp/server/keys/ flat=yes"

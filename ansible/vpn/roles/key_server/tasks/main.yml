@@ -1,0 +1,39 @@
+- name: Install EasyRSA
+  apt:
+    name: easy-rsa
+    state: present
+
+- name: Create the keyserver directory
+  shell:
+    cmd: make-cadir "{{ keyserver_dir }}"
+    creates: "{{ keyserver_dir }}"
+
+- name: Define RSA variables
+  template: src=vars.j2 dest={{ keyserver_dir }}/vars
+
+- name: Init openssl pki
+  shell:
+    chdir: "{{ keyserver_dir }}"
+    cmd: ./easyrsa init-pki
+    creates: "{{ keyserver_dir }}/pki"
+
+- name: Copy client config base template
+  template: src=client_base_config.ovpn.j2 dest={{ keyserver_dir }}/client_base_config.ovpn
+
+- name: Copy configuration creation script
+  template: src=make_config.sh.j2 dest={{ keyserver_dir }}/make_config.sh mode=0700
+
+- name: Create the client certificates
+  shell:
+    chdir: "{{ keyserver_dir }}"
+    cmd: "EASYRSA_REQ_CN='{{ item }}' ./easyrsa gen-req {{ item }} nopass"
+    creates: "{{ keyserver_dir }}/pki/private/{{ item }}.key"
+  loop: "{{ openvpn_clients }}"
+
+- name: Copy client reqs to master
+  fetch: "src={{ keyserver_dir }}/pki/reqs/{{ item }}.req dest=tmp/client/reqs/ flat=yes"
+  loop: "{{ openvpn_clients }}"
+
+- name: Copy client keys to master
+  fetch: "src={{ keyserver_dir }}/pki/private/{{ item }}.key dest=tmp/client/keys/ flat=yes"
+  loop: "{{ openvpn_clients }}"

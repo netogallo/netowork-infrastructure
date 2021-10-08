@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# First argument: Client identifier
+
+OUTPUT_DIR={{ keyserver_dir }}/tmp/client/configs
+BASE_CONFIG={{ keyserver_dir }}/client_base_config.ovpn
+
+mkdir -p $OUTPUT_DIR
+
+cat ${BASE_CONFIG} \
+    <(echo -e '<ca>') \
+    {{ keyserver_dir }}/tmp/ca/certs/ca.crt \
+    <(echo -e '</ca>\n<cert>') \
+    {{ keyserver_dir }}/tmp/client/certs/${1}.crt \
+    <(echo -e '</cert>\n<key>') \
+    {{ keyserver_dir }}/tmp/client/keys/${1}.key \
+    <(echo -e '</key>\n<tls-auth>') \
+    {{ keyserver_dir }}/tmp/server/keys/ta.key \
+    <(echo -e '</tls-auth>') \
+    > ${OUTPUT_DIR}/${1}.ovpn

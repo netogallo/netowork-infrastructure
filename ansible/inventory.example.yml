@@ -1,0 +1,9 @@
+all:
+  hosts:
+    127.0.0.1:
+  children:
+    ca:
+      vars:
+        vpn_server_name: [vpn hostname]
+      hosts:
+        127.0.0.1:

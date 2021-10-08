@@ -1,0 +1,32 @@
+- name: Install EasyRSA
+  dnf:
+    name: easy-rsa
+    state: latest
+
+- name: Create CA directory
+  file:
+    path: "{{ ca_dir }}"
+    state: directory
+
+- name: Define RSA variables
+  template: src=vars.j2 dest={{ ca_dir }}/vars
+
+- name: Add easyrsa to the CA directory
+  shell:
+    cmd: cp -rai /usr/share/easy-rsa/3/* {{ ca_dir }}
+    creates: "{{ ca_dir }}/easyrsa"
+
+- name: Init openssl pki
+  shell:
+    chdir: "{{ ca_dir }}"
+    cmd: ./easyrsa init-pki
+    creates: "{{ ca_dir }}/pki"
+
+- name: Create the certificate authority
+  shell:
+    chdir: "{{ ca_dir }}"
+    cmd: ./easyrsa build-ca nopass
+    creates: "{{ ca_dir }}/pki/ca.crt"
+
+- name: Copy the CA key to master
+  fetch: "src={{ ca_dir }}/pki/ca.crt dest=tmp/ca/certs/ flat=yes"
