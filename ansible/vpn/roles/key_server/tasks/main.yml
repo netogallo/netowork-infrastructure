@@ -1,12 +1,17 @@
 - name: Install EasyRSA
-  apt:
+  dnf:
     name: easy-rsa
     state: present
 
 - name: Create the keyserver directory
+  file:
+    path: "{{ keyserver_dir }}"
+    state: directory
+
+- name: Copy EasyRSA to the keyserver directory
   shell:
-    cmd: make-cadir "{{ keyserver_dir }}"
-    creates: "{{ keyserver_dir }}"
+    cmd: cp -rai /usr/share/easy-rsa/3/* "{{ keyserver_dir }}"
+    creates: "{{ keyserver_dir }}/easyrsa"
 
 - name: Define RSA variables
   template: src=vars.j2 dest={{ keyserver_dir }}/vars

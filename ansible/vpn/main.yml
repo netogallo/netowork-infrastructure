@@ -4,3 +4,10 @@
 
   roles:
     - ca
+
+- name: Configure the key server
+  hosts: key_server
+  remote_user: root
+
+  roles:
+    - key_server

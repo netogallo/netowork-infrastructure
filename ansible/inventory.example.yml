@@ -1,9 +1,20 @@
 all:
   hosts:
     127.0.0.1:
+  vars:
+    openvpn_clients:
+      - [client 1]
+      - [client 2]
+      - [client N]
   children:
     ca:
       vars:
         vpn_server_name: [vpn hostname]
       hosts:
         127.0.0.1:
+    key_server:
+      hosts:
+        127.0.0.1:
+    server:
+      hosts:
+        [ip or hostname of vpn server]:

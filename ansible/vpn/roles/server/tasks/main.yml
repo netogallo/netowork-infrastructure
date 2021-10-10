@@ -1,15 +1,15 @@
 - name: Install OpenVPN
-  apt:
+  dnf:
     name: openvpn
     state: present
 
 - name: Install EasyRSA
-  apt:
+  dnf:
     name: easy-rsa
     state: present
 
 - name: Install UFW
-  apt:
+  dnf:
     name: ufw
     state: present
 
@@ -17,9 +17,14 @@
   template: "src=server.conf.j2 dest={{ openvpn_dir }}/../server.conf"
 
 - name: Create CA directory
+  file:
+    path: "{{ openvpn_dir }}/ca"
+    state: directory
+
+- name: Copy EasyRSA to the CA directory
   shell:
-    cmd: make-cadir "{{ openvpn_dir }}/ca"
-    creates: "{{ openvpn_dir }}/ca"
+    cmd: cp -rai /usr/share/easy-rsa/3/* "{{ openvpn_dir }}/ca"
+    creates: "{{ openvpn_dir }}/ca/easyrsa"
 
 - name: Define RSA variables
   template: src=vars.j2 dest={{ openvpn_dir }}/ca/vars
