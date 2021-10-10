@@ -1,0 +1,9 @@
+version: "3.9"
+
+services:
+  ca:
+    build:
+      context: .
+      dockerfile: Dockerfile.CA
+    ports:
+      - "22:22"

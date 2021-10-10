@@ -1,0 +1,7 @@
+FROM fedora:34
+
+RUN dnf install -y openssh-server
+RUN ssh-keygen -N "" -f /root/.ssh/id_rsa
+COPY secrets/id_rsa.pub /tmp/
+RUN cat /tmp/id_rsa.pub > /root/.ssh/authorized_keys
+CMD [/usr/sbin/sshd, -D, -e, -h, /root/.ssh/id_rsa]
