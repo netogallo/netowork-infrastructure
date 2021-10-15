@@ -14,7 +14,7 @@
     state: present
 
 - name: Copy openvpn server config
-  template: "src=server.conf.j2 dest={{ openvpn_dir }}/../server.conf"
+  template: "src=server.conf.j2 dest={{ openvpn_dir }}/server.conf"
 
 - name: Create CA directory
   file:

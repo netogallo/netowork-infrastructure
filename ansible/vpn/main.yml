@@ -11,3 +11,139 @@
 
   roles:
     - key_server
+
+- name: Configure openvpn server
+  hosts: server
+  remote_user: root
+
+  roles:
+    - server
+
+- name: Sign server certificates
+  hosts: ca
+  remote_user: root
+  vars_files:
+    - roles/ca/vars/main.yml
+  tasks:
+    - name: Copy server requests to CA
+      copy: "src=tmp/server/reqs/ dest={{ ca_dir }}/tmp/server/reqs/"
+
+    - name: Import server signing reqs
+      shell:
+        chdir: "{{ ca_dir }}"
+        cmd: |
+          FILE={{ item }}
+          REQ_FILE="{{ ca_dir }}/pki/reqs/$FILE.req"
+          if [ -f "$REQ_FILE" ]; then
+            rm "$REQ_FILE"
+          fi
+          ./easyrsa import-req "{{ ca_dir }}/tmp/server/reqs/$FILE.req" $FILE
+          ./easyrsa sign-req server $FILE
+        creates: "{{ ca_dir }}/pki/issued/{{ item }}.crt"
+
+      loop: "{{ groups.server }}"
+
+    - name: Copy signed certificates to master
+      fetch: "src={{ ca_dir }}/pki/issued/{{ item }}.crt dest=tmp/server/certs/ flat=yes"
+      loop: "{{ groups.server }}"
+
+- name: Copy signed certificates to server
+  hosts: server
+  remote_user: root
+  vars_files:
+    - roles/server/vars/main.yml
+  tasks:
+    - name: Copy signed server certificate to server
+      copy: "src=tmp/server/certs/{{ inventory_hostname }}.crt dest={{ openvpn_dir }}/{{ inventory_hostname }}.crt"
+
+    - name : Copy CA key to server
+      copy: "src=tmp/ca/certs/ca.crt dest={{ openvpn_dir }}"
+
+- name: Sign client certificates
+  hosts: ca
+  remote_user: root
+  vars_files:
+    - roles/ca/vars/main.yml
+  tasks:
+    - name: Copy client requests to CA server
+      copy: "src=tmp/client/reqs/{{ item }}.req dest={{ ca_dir }}/tmp/client/reqs/"
+      loop: "{{ openvpn_clients }}"
+
+    - name: Sign the client requests
+      shell:
+        chdir: "{{ ca_dir }}"
+        cmd: |
+          REQ_FILE="{{ ca_dir }}/pki/reqs/{{ item }}.req"
+          if [ -f "$REQ_FILE" ]; then
+            rm "$REQ_FILE"
+          fi
+          ./easyrsa import-req "{{ ca_dir }}/tmp/client/reqs/{{ item }}.req" "{{ item }}"
+          ./easyrsa sign-req client {{ item }}
+        creates: "{{ ca_dir }}/pki/issued/{{ item }}.crt"
+      loop: "{{ openvpn_clients }}"
+
+    - name: Copy signed client certificates to master
+      fetch: "src={{ ca_dir }}/pki/issued/{{ item }}.crt dest=tmp/client/certs/ flat=yes"
+      loop: "{{ openvpn_clients }}"
+
+- name: Generate client configurations
+  hosts: key_server
+  remote_user: root
+  vars_files:
+    - roles/key_server/vars/main.yml
+  tasks:
+    - name: Copy client certificates to key server
+      copy: "src=tmp/client/certs/{{ item }}.crt dest={{ keyserver_dir }}/tmp/client/certs/"
+      loop: "{{ openvpn_clients }}"
+
+    - name: Copy client keys to key server
+      copy: "src=tmp/client/keys/{{ item }}.key dest={{ keyserver_dir }}/tmp/client/keys/"
+      loop: "{{ openvpn_clients }}"
+
+    - name: Copy server ta key to key server
+      copy: "src=tmp/server/keys/ta.key dest={{ keyserver_dir }}/tmp/server/keys/"
+
+    - name: Copy CA certificate to key server
+      copy: "src=tmp/ca/certs/ca.crt dest={{ keyserver_dir }}/tmp/ca/certs/"
+
+    - name: Generate client configs
+      shell:
+        chdir: "{{ keyserver_dir }}"
+        cmd: "./make_config.sh {{ item }}"
+        creates: "{{ keyserver_dir }}/tmp/client/configs/{{ item }}.ovpn"
+      loop: "{{ openvpn_clients }}"
+
+    - name: Copy openvpn configurations to master
+      fetch: "src={{ keyserver_dir }}/tmp/client/configs/{{ item }}.ovpn dest=tmp/client/configs/{{ item }}.ovpn flat=yes"
+      loop: "{{ openvpn_clients }}"
+
+- name: Start OpenVPN server
+  hosts: server
+  remote_user: root
+  tasks:
+
+    - name: Ensure OpenVPN is running
+      systemd:
+        state: started
+        enabled: yes
+        name: openvpn-server@server
+
+    - name: Stop firewalld on server
+      systemd:
+        state: stopped
+        enabled: no
+        name: firewalld
+
+    - name: Ensure ufw allows ssh access
+      shell:
+        cmd: ufw allow ssh
+
+    - name: Ensure ufw allows openvpn connections
+      shell:
+        cmd: ufw allow 443/tcp
+
+    - name: Start UFW
+      systemd:
+        state: started
+        enabled: yes
+        name: ufw
