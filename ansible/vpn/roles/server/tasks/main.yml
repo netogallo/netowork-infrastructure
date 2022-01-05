@@ -8,11 +8,6 @@
     name: easy-rsa
     state: present
 
-- name: Install UFW
-  dnf:
-    name: ufw
-    state: present
-
 - name: Copy openvpn server config
   template: "src=server.conf.j2 dest={{ openvpn_dir }}/server.conf"
 
@@ -60,11 +55,23 @@
   shell:
     cmd: sysctl -p
 
-- name: Copy firewall rules with postrouting support
-  template: src=before.rules.j2 dest=/etc/ufw/before.rules
+- name: Ensure firewald is enabled
+  systemd:
+    state: started
+    enabled: yes
+    name: firewalld
 
-- name: Copy firewall rules with forwarding enabled
-  copy: src=ufw dest=/etc/default/ufw
+- name: Add https to firewalld
+  shell:
+    cmd: firewall-cmd --add-service https && firewall-cmd --permanent --add-service https
+
+- name: Enable Maquerade in firewalld
+  shell:
+    cmd: firewall-cmd --add-masquerade && firewall-cmd --permanent --add-masquerade
+
+- name: Enable forwarding in firewalld
+  shell:
+    cmd: firewall-cmd --add-forward && firewall-cmd  --permanent--add-forward
 
 - name: Copy siging requests to master
   fetch: "src={{ openvpn_dir }}/ca/pki/reqs/{{ inventory_hostname }}.req dest=tmp/server/reqs/ flat=yes"

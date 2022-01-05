@@ -128,22 +128,5 @@
         enabled: yes
         name: openvpn-server@server
 
-    - name: Stop firewalld on server
-      systemd:
-        state: stopped
-        enabled: no
-        name: firewalld
-
-    - name: Ensure ufw allows ssh access
-      shell:
-        cmd: ufw allow ssh
-
-    - name: Ensure ufw allows openvpn connections
-      shell:
-        cmd: ufw allow 443/tcp
-
-    - name: Start UFW
-      systemd:
-        state: started
-        enabled: yes
-        name: ufw
+    - name: Add tun0 to firewall zone
+      cmd: firewall-cmd --zone=FedoraServer --add-interface tun0 && firewall-cmd --zone=FedoraServer --permanent --add-interface tun0
