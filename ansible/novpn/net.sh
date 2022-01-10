@@ -23,7 +23,7 @@ then
     fi
 
     IP_ROUTE_CMD="ip route list table $NOVPN | grep Error"
-    IP_ROUTE=sh -c "$IP_ROUTE_CMD"
+    IP_ROUTE=`sh -c "$IP_ROUTE_CMD"`
 
     if [ "" == "$IP_ROUTE" ];
     then
